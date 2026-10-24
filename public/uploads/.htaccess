@@ -1,0 +1,10 @@
+# Defense-in-depth: never execute scripts from the uploads directory.
+# Even if a malicious file is somehow stored here, it cannot be run.
+<FilesMatch "\.(php|phtml|phar|pht|php[0-9]|cgi|pl|py|sh|asp|aspx|jsp)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule \.(php|phtml|phar|pht|php[0-9])$ - [F,L]
+</IfModule>
