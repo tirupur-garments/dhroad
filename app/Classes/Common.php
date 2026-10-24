@@ -351,16 +351,28 @@ class Common
 
         $folderPath = self::getFolderPath($folderString);
 
+        $fileName = null;
+
         if ($request->hasFile('image') || $request->hasFile('file')) {
             $largeLogo  = $request->hasFile('image') ? $request->file('image') : $request->file('file');
 
-            $fileName   = $folder . '_' . strtolower(Str::random(20)) . '.' . $largeLogo->getClientOriginalExtension();
+            // Security: only allow known-safe file types. The uploaded extension is
+            // attacker-controlled, so never save it as-is — reject anything that could
+            // be executed (e.g. .php) to prevent remote code execution via upload.
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx'];
+            $extension = strtolower($largeLogo->getClientOriginalExtension());
+
+            if (!in_array($extension, $allowedExtensions, true)) {
+                abort(422, 'Invalid file type.');
+            }
+
+            $fileName   = $folder . '_' . strtolower(Str::random(20)) . '.' . $extension;
             $largeLogo->storePubliclyAs($folderPath, $fileName);
         }
 
         return [
             'file' => $fileName,
-            'file_url' => self::getFileUrl($folderPath, $fileName),
+            'file_url' => $fileName ? self::getFileUrl($folderPath, $fileName) : null,
         ];
     }
 

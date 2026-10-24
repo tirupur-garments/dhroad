@@ -21,6 +21,7 @@ yarn-error.log
 /public/css/*
 /public/js/*
 /public/uploads/*
+!/public/uploads/.htaccess
 /public/build/*
 /Modules/*
 !/Modules
