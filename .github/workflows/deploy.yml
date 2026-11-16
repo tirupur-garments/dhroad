@@ -8,7 +8,7 @@ name: Deploy to Hostinger
 #   HOSTINGER_PORT      65002 (Hostinger's SSH port)
 #   HOSTINGER_SSH_KEY   private key whose public half is added in hPanel -> SSH Access
 #   HOSTINGER_APP_PATH  absolute path of the app (the git clone) on the server,
-#                       e.g. /home/u123456789/domains/example.com/public_html
+#                       here /home/u344249584/domains/tirupurgarments.in/public_html/dhroad
 
 on:
   push:
@@ -62,6 +62,17 @@ jobs:
           script: |
             set -e
             cd "${{ secrets.HOSTINGER_APP_PATH }}"
+            # The app sits in a subfolder of public_html. Refuse to run unless
+            # this folder is itself the top of a clone of this repo, so git
+            # never resets a parent repository by mistake.
+            if [ "$(git rev-parse --show-toplevel 2>/dev/null)" != "$(pwd -P)" ]; then
+              echo "$(pwd) is not the top of its own git clone; aborting" >&2
+              exit 1
+            fi
+            if ! git remote get-url origin | grep -q 'tirupurgarments-dhroad'; then
+              echo "origin is not the tirupurgarments-dhroad repo; aborting" >&2
+              exit 1
+            fi
             git fetch origin main
             git reset --hard origin/main
             bash deploy.sh
