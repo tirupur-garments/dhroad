@@ -69,8 +69,10 @@ jobs:
               echo "$(pwd) is not the top of its own git clone; aborting" >&2
               exit 1
             fi
-            if ! git remote get-url origin | grep -q 'tirupurgarments-dhroad'; then
-              echo "origin is not the tirupurgarments-dhroad repo; aborting" >&2
+            # Repo moved from DileepanNpd/tirupurgarments-dhroad to
+            # tirupur-garments/dhroad; accept a clone made from either URL.
+            if ! git remote get-url origin | grep -Eq 'tirupurgarments-dhroad|tirupur-garments/dhroad'; then
+              echo "origin is not the dhroad repo; aborting" >&2
               exit 1
             fi
             git fetch origin main
