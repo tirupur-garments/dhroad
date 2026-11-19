@@ -1,0 +1,80 @@
+name: Deploy to Hostinger
+
+# Runs when code lands on main (i.e. when a PR is merged), or by hand from the
+# Actions tab. Requires these repository secrets
+# (Settings -> Secrets and variables -> Actions):
+#   HOSTINGER_HOST      server IP or hostname from hPanel -> SSH Access
+#   HOSTINGER_USERNAME  e.g. u123456789
+#   HOSTINGER_PORT      65002 (Hostinger's SSH port)
+#   HOSTINGER_SSH_KEY   private key whose public half is added in hPanel -> SSH Access
+#   HOSTINGER_APP_PATH  absolute path of the app (the git clone) on the server,
+#                       here /home/u344249584/domains/tirupurgarments.in/public_html/dhroad
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # public/build is gitignored, so the Vite assets are built here and
+      # uploaded; the server never needs Node.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+          tar -czf build.tar.gz -C public build
+
+      - name: Upload assets to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USERNAME }}
+          port: ${{ secrets.HOSTINGER_PORT }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          source: build.tar.gz
+          target: ${{ secrets.HOSTINGER_APP_PATH }}/.deploy
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USERNAME }}
+          port: ${{ secrets.HOSTINGER_PORT }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            cd "${{ secrets.HOSTINGER_APP_PATH }}"
+            # The app sits in a subfolder of public_html. Refuse to run unless
+            # this folder is itself the top of a clone of this repo, so git
+            # never resets a parent repository by mistake.
+            if [ "$(git rev-parse --show-toplevel 2>/dev/null)" != "$(pwd -P)" ]; then
+              echo "$(pwd) is not the top of its own git clone; aborting" >&2
+              exit 1
+            fi
+            # Repo moved from DileepanNpd/tirupurgarments-dhroad to
+            # tirupur-garments/dhroad; accept a clone made from either URL.
+            if ! git remote get-url origin | grep -Eq 'tirupurgarments-dhroad|tirupur-garments/dhroad'; then
+              echo "origin is not the dhroad repo; aborting" >&2
+              exit 1
+            fi
+            git fetch origin main
+            git reset --hard origin/main
+            bash deploy.sh
